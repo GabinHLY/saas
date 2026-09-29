@@ -1,6 +1,6 @@
-# WHAT WORKS? — 31 / 31
+# WHAT WORKS? — 31 jours, 31 produits
 
-MVP du challenge d’octobre 2026. Direction artistique « encre bleue » : une seule encre outremer sur papier blanc, un surligneur fluo pour ce qui compte, du rouge pour les échecs. Archivo étendu pour les titres, Newsreader pour la lecture, un vrai calendrier d’octobre, des bâtons de comptage et des tampons de statut.
+Un produit (ou une expérience) lancé chaque jour d’octobre 2026 pour découvrir ce qui rapporte vraiment : outils, jeux, SaaS, générateurs, services, communautés… Construire → lancer → monétiser → mesurer → recommencer. Direction artistique « encre bleue » : une seule encre outremer sur papier blanc, un surligneur fluo pour ce qui compte, du rouge pour les échecs. Archivo étendu pour les titres, Newsreader pour la lecture, un vrai calendrier d’octobre, des bâtons de comptage et des tampons de statut.
 
 ## Démarrage
 
@@ -37,7 +37,11 @@ L’espace privé est accessible sur `/admin` et `/admin/saas`. Le mot de passe 
 - `data/challenge.sqlite` : base locale, non versionnée.
 - `data/uploads/` : captures et logos importés, non versionnés.
 
-Tables : `users`, `saas`, `revenue_transactions`, `expenses`, `analytics_snapshots`, `build_logs`. Toutes les données liées à un projet sont supprimées avec lui. Un jour et un slug ne peuvent appartenir qu’à une expérience.
+- `shared/catalog.mjs` : types de produit et modèles économiques, partagés par l’API et l’interface.
+
+Tables : `users`, `saas`, `revenue_transactions`, `expenses`, `analytics_snapshots`, `build_logs`. La table `saas` garde son nom historique mais contient tous les types de produits.
+
+Chaque expérience a un `product_type` (ce qu’on construit : TOOL, GAME, SERVICE…) et un `model` (le modèle économique principal : ADVERTISING, SUBSCRIPTION…). Les revenus restent des transactions : chacune porte sa propre source (`type`), ce qui permet plusieurs sources par produit (pub + sponsoring, paiement unique + affiliation…). Les anciennes valeurs `ONE_TIME` et `ADS` sont converties au démarrage. Toutes les données liées à un projet sont supprimées avec lui. Un jour et un slug ne peuvent appartenir qu’à une expérience.
 
 ## Parcours disponible
 
@@ -50,7 +54,7 @@ Tables : `users`, `saas`, `revenue_transactions`, `expenses`, `analytics_snapsho
 
 Profit = revenus − dépenses ; profit/heure = profit ÷ temps de build. La conversion présentée correspond aux clients ÷ visiteurs. Le MRR est saisi comme valeur active du jour, jamais calculé en additionnant les anciens abonnements. Les visiteurs et utilisateurs globaux sont les sommes par produit, pas des personnes dédupliquées entre produits.
 
-Les coûts et profits ne sont pas exposés par l’API publique. Les autres métriques, transactions de revenus et journaux sont publics. Ne pas saisir de données confidentielles dans leurs descriptions.
+Les totaux (revenus, coûts, profit, profit/heure) et les transactions de revenus sont publics ; le détail des dépenses reste privé. Le classement public et la section « Ce qui rapporte » (revenus par modèle, par type, matrice type × modèle, records) sont calculés à partir de ces données. Ne pas saisir de données confidentielles dans leurs descriptions.
 
 ## Production
 

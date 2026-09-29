@@ -17,5 +17,11 @@ export function metrics(project, revenues = [], expenses = [], snapshots = []) {
       ? (100 * (latest.customers || 0)) / latest.visitors
       : 0,
     profitHour: project.hours ? (revenue - costs) / project.hours : 0,
+    // Un produit peut avoir plusieurs sources de revenus (pub + sponsor…).
+    revenueSources: revenues.reduce((sources, r) => {
+      const type = r.type || "OTHER";
+      sources[type] = (sources[type] || 0) + r.amount;
+      return sources;
+    }, {}),
   };
 }

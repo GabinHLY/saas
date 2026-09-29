@@ -1,18 +1,20 @@
-const names = [
-  "Formdrop",
-  "TinyInvoice",
-  "Shiplog",
-  "Waitlist.run",
-  "Linkbrief",
-  "Screenshot API",
-  "Focusroom",
-  "Proofwall",
-  "Pinglet",
-  "Readwise Lite",
-  "Palette.work",
-  "Changelog.so",
-  "Invoice Nudger",
-  "Dailydraft",
+// Données fictives du mode démonstration, jamais écrites en base.
+// [nom, type de produit, modèle principal, sources de revenus (centimes), statut, décision]
+const specimens = [
+  ["Formdrop", "TOOL", "SUBSCRIPTION", { SUBSCRIPTION: 14200 }, "PROMISING", "CONTINUE"],
+  ["TinyInvoice", "SAAS", "SUBSCRIPTION", { SUBSCRIPTION: 9600 }, "SHIPPED", "OBSERVE"],
+  ["Shiplog", "WIDGET", "PREMIUM_FEATURE", { PREMIUM_FEATURE: 4800 }, "SHIPPED", "OBSERVE"],
+  ["Waitlist.run", "TOOL", "ONE_TIME_PAYMENT", {}, "FAILED", "KILL"],
+  ["Pixel Duel", "GAME", "ADVERTISING", { ADVERTISING: 4200, SPONSORSHIP: 10000 }, "PROMISING", "CONTINUE"],
+  ["Screenshot API", "SAAS", "CREDITS", { CREDITS: 11500 }, "SHIPPED", "OBSERVE"],
+  ["Focusroom", "COMMUNITY", "DONATION", { DONATION: 2400 }, "SHIPPED", "PAUSE"],
+  ["Proofwall", "WIDGET", "SUBSCRIPTION", { SUBSCRIPTION: 18900 }, "PROFITABLE", "CONTINUE"],
+  ["Palette.work", "GENERATOR", "ONE_TIME_PAYMENT", { ONE_TIME_PAYMENT: 8700, AFFILIATE: 3200 }, "PROMISING", "OBSERVE"],
+  ["Stack Atlas", "DIRECTORY", "SPONSORSHIP", {}, "SHIPPED", "OBSERVE"],
+  ["Logo Sprint", "SERVICE", "PAID_SERVICE", { PAID_SERVICE: 4000 }, "SHIPPED", "OBSERVE"],
+  ["Changelog.so", "CONTENT", "ADVERTISING", { ADVERTISING: 900 }, "SHIPPED", "PAUSE"],
+  ["Invoice Nudger", "B2B", "LEAD_GENERATION", { LEAD_GENERATION: 1300 }, "SHIPPED", "OBSERVE"],
+  ["Dailydraft", "GENERATOR", "PREMIUM_FEATURE", {}, "BUILDING", "OBSERVE"],
 ];
 const copy = {
   fr: {
@@ -21,19 +23,19 @@ const copy = {
       "Une facture. Un lien. C’est payé.",
       "Le journal de bord des produits qui avancent.",
       "Valider une idée avant d’écrire du code.",
-      "Vos liens sauvegardés, vraiment utiles.",
+      "Un duel de pixels en trente secondes, dans le navigateur.",
       "Une capture parfaite. Une simple requête.",
-      "Un espace calme pour faire le travail.",
+      "Un espace calme pour faire le travail, ensemble.",
       "La preuve sociale, sans les complications.",
-      "Votre site tombe. Vous le savez.",
-      "Moins de favoris. Plus de connaissances.",
       "Des palettes pensées pour les interfaces.",
+      "L’annuaire des outils des petites équipes.",
+      "Un logo propre en 24 heures, pour 40 €.",
       "Chaque amélioration mérite d’être vue.",
       "Les relances que vous n’avez plus à écrire.",
       "De la page blanche à la première version.",
     ],
     hypothesis:
-      "Un outil très ciblé, simple à prendre en main, peut faire gagner assez de temps pour devenir un produit que l’on choisit de payer.",
+      "Un produit très ciblé, simple à prendre en main, peut trouver des gens prêts à payer dès le premier jour.",
     description:
       " Une expérience pour tester une seule idée : faire moins, mais le faire vraiment bien.",
     result:
@@ -45,19 +47,19 @@ const copy = {
       "One invoice. One link. Paid.",
       "The logbook for products that keep moving.",
       "Validate an idea before writing any code.",
-      "Your saved links, actually useful.",
+      "A thirty-second pixel duel, right in the browser.",
       "A perfect screenshot. One simple request.",
-      "A quiet space to get the work done.",
+      "A quiet space to get the work done, together.",
       "Social proof, without the hassle.",
-      "Your site goes down. You know about it.",
-      "Fewer bookmarks. More knowledge.",
       "Palettes designed for interfaces.",
+      "The directory of tools small teams use.",
+      "A clean logo in 24 hours, for €40.",
       "Every improvement deserves to be seen.",
       "The reminders you no longer have to write.",
       "From blank page to first version.",
     ],
     hypothesis:
-      "A narrowly focused tool that is easy to pick up can save enough time to become something people choose to pay for.",
+      "A narrowly focused product that is easy to pick up can find people willing to pay on day one.",
     description:
       " An experiment to test a single idea: do less, but do it really well.",
     result:
@@ -65,43 +67,37 @@ const copy = {
   },
 };
 const build = (lang) =>
-  names.map((name, i) => ({
-    id: i + 1,
-    day: i + 1,
-    name,
-    slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    pitch: copy[lang].pitches[i],
-    status:
-      i === 13
-        ? "BUILDING"
-        : i === 3
-          ? "FAILED"
-          : i === 7
-            ? "PROFITABLE"
-            : i === 0 || i === 8
-              ? "PROMISING"
-              : "SHIPPED",
-    category: ["PRODUCTIVITY", "FINANCE", "DEVELOPER TOOLS", "MARKETING"][
-      i % 4
-    ],
-    model: i % 3 ? "SUBSCRIPTION" : "ONE_TIME",
-    hours: [4.35, 5.2, 3.75, 6.1][i % 4],
-    revenue: [
-      14200, 9600, 4800, 0, 3200, 11500, 2400, 18900, 12600, 0, 2100, 3500,
-      1300, 0,
-    ][i],
-    mrr: [4900, 2900, 1900, 0, 900, 3900, 900, 4900, 1900, 0, 0, 900, 0, 0][i],
-    users: [284, 132, 86, 41, 63, 107, 49, 198, 241, 32, 65, 83, 48, 0][i],
-    visitors: 1120 + i * 117,
-    customers: Math.max(0, 14 - i),
-    costs: 1200,
-    profit: 0,
-    launch: `2026-10-${String(i + 1).padStart(2, "0")}`,
-    hypothesis: copy[lang].hypothesis,
-    description: copy[lang].pitches[i] + copy[lang].description,
-    result: copy[lang].result,
-    decision: "OBSERVE",
-    stack: "React · Node.js · SQLite",
-    demo: true,
-  }));
+  specimens.map(([name, type, model, sources, status, decision], i) => {
+    const revenue = Object.values(sources).reduce((s, v) => s + v, 0),
+      hours = [4.35, 5.2, 3.75, 6.1][i % 4],
+      costs = [1200, 800, 2500, 400][i % 4];
+    return {
+      id: i + 1,
+      day: i + 1,
+      name,
+      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      pitch: copy[lang].pitches[i],
+      status,
+      decision,
+      product_type: type,
+      model,
+      category: "",
+      revenueSources: sources,
+      hours,
+      revenue,
+      costs,
+      profit: revenue - costs,
+      profitHour: (revenue - costs) / hours,
+      mrr: model === "SUBSCRIPTION" ? Math.round(revenue / 3) : 0,
+      users: [284, 132, 86, 41, 612, 107, 49, 198, 241, 32, 6, 83, 48, 0][i],
+      visitors: 1120 + i * 117,
+      customers: Math.max(0, 14 - i),
+      launch: `2026-10-${String(i + 1).padStart(2, "0")}`,
+      hypothesis: copy[lang].hypothesis,
+      description: copy[lang].pitches[i] + copy[lang].description,
+      result: copy[lang].result,
+      stack: "React · Node.js · SQLite",
+      demo: true,
+    };
+  });
 export const demoProjects = { fr: build("fr"), en: build("en") };

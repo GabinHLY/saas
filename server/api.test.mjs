@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-test("admin lifecycle, auth, private costs, metric validation and cascade deletion", async () => {
+test("admin lifecycle, auth, public totals, metric validation and cascade deletion", async () => {
   const dir = await mkdtemp(join(tmpdir(), "ww-test-"));
   const password = randomBytes(24).toString("hex");
   const port = 18341;
@@ -45,8 +45,21 @@ test("admin lifecycle, auth, private costs, metric validation and cascade deleti
       name: "Test",
       slug: "test",
       status: "SHIPPED",
+      product_type: "GAME",
+      model: "ADVERTISING",
       hours: 2,
     };
+    assert.equal(
+      (
+        await request("/admin/projects", "POST", {
+          ...project,
+          day: 2,
+          slug: "bad-type",
+          product_type: "SPACESHIP",
+        })
+      ).status,
+      400,
+    );
     assert.equal(
       (await request("/admin/projects", "POST", project)).status,
       200,
@@ -62,6 +75,16 @@ test("admin lifecycle, auth, private costs, metric validation and cascade deleti
           amount: 1299,
           type: "SUBSCRIPTION",
           date: "2026-10-01",
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(`/admin/projects/${p.id}/revenue`, "POST", {
+          amount: 500,
+          type: "SPONSORSHIP",
+          date: "2026-10-02",
         })
       ).status,
       200,
@@ -99,12 +122,19 @@ test("admin lifecycle, auth, private costs, metric validation and cascade deleti
       400,
     );
     const [privateP] = await (await request("/admin/projects")).json();
-    assert.equal(privateP.profit, 1100);
+    assert.equal(privateP.profit, 1600);
     assert.equal(privateP.mrr, 900);
+    assert.equal(privateP.product_type, "GAME");
+    assert.deepEqual(privateP.revenueSources, {
+      SUBSCRIPTION: 1299,
+      SPONSORSHIP: 500,
+    });
     const publicP = await (await request("/projects/test")).json();
-    assert.equal(publicP.revenue, 1299);
-    assert.equal(publicP.costs, undefined);
-    assert.equal(publicP.profit, undefined);
+    assert.equal(publicP.revenue, 1799);
+    // Totaux publics, détail des dépenses privé.
+    assert.equal(publicP.costs, 199);
+    assert.equal(publicP.profit, 1600);
+    assert.equal(publicP.expenses, undefined);
     const og = await request("/og/test");
     assert.equal(og.headers.get("content-type"), "image/png");
     assert.deepEqual(
@@ -113,7 +143,7 @@ test("admin lifecycle, auth, private costs, metric validation and cascade deleti
     );
     const summary = await (await request("/admin/revenue-summary")).json();
     assert.equal(summary[0].amount, 1299);
-    const page = await fetch(`http://localhost:${port}/saas/test`);
+    const page = await fetch(`http://localhost:${port}/exp/test`);
     assert.match(await page.text(), /property="og:title"/);
     assert.equal(
       (await request("/admin/uploads", "POST", { data: "not-an-image" }))

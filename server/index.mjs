@@ -6,6 +6,11 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import sharp from "sharp";
 import { ogImage, escapeHtml } from "./share.mjs";
 import { metrics } from "./metrics.mjs";
+import {
+  PRODUCT_TYPES,
+  BUSINESS_MODELS,
+  LEGACY_MODELS,
+} from "../shared/catalog.mjs";
 mkdirSync("data", { recursive: true });
 const db = new DatabaseSync(
   process.env.DATABASE_PATH || "data/challenge.sqlite",
@@ -20,6 +25,22 @@ if (
     .some((c) => c.name === "logo")
 )
   db.exec("ALTER TABLE saas ADD COLUMN logo TEXT DEFAULT ''");
+// La table garde son nom historique « saas », mais contient tous les types de
+// produits (jeux, services, générateurs…).
+if (
+  !db
+    .prepare("PRAGMA table_info(saas)")
+    .all()
+    .some((c) => c.name === "product_type")
+)
+  db.exec("ALTER TABLE saas ADD COLUMN product_type TEXT DEFAULT 'OTHER'");
+for (const [from, to] of Object.entries(LEGACY_MODELS)) {
+  db.prepare("UPDATE saas SET model=? WHERE model=?").run(to, from);
+  db.prepare("UPDATE revenue_transactions SET type=? WHERE type=?").run(
+    to,
+    from,
+  );
+}
 const hash = (p) => {
   const salt = randomBytes(16).toString("hex");
   return salt + ":" + scryptSync(p, salt, 64).toString("hex");
@@ -47,10 +68,6 @@ const list = () =>
         ),
       ),
     );
-const publicProject = (p) => {
-  const { costs, profit, profitHour, ...rest } = p;
-  return rest;
-};
 const json = (res, status, data) => {
   res.writeHead(status, {
     "Content-Type": "application/json",
@@ -69,6 +86,7 @@ const projectFields = [
   "decision",
   "status",
   "category",
+  "product_type",
   "model",
   "hours",
   "url",
@@ -203,7 +221,7 @@ http
         return res.end(await ogImage(p));
       }
       if (path === "/api/projects" && req.method === "GET")
-        return json(res, 200, list().map(publicProject));
+        return json(res, 200, list());
       if (path === "/api/admin/projects" && req.method === "GET")
         return json(res, 200, list());
       if (path.startsWith("/api/projects/") && req.method === "GET") {
@@ -212,7 +230,7 @@ http
         );
         if (!p) return json(res, 404, { error: "Expérience introuvable" });
         return json(res, 200, {
-          ...publicProject(p),
+          ...p,
           revenues: db
             .prepare(
               "SELECT * FROM revenue_transactions WHERE saas_id=? ORDER BY date",
@@ -261,6 +279,12 @@ http
             throw Error("URL HTTP(S) requise");
         if (!Number.isFinite(+body.hours) || +body.hours < 0)
           throw Error("Durée invalide");
+        body.product_type ||= "OTHER";
+        body.model ||= "OTHER";
+        if (!PRODUCT_TYPES.includes(body.product_type))
+          throw Error("Type de produit invalide");
+        if (!BUSINESS_MODELS.includes(body.model))
+          throw Error("Modèle économique invalide");
         const values = projectFields.map((f) => body[f] ?? "");
         if (req.method === "POST")
           db.prepare(
@@ -303,6 +327,11 @@ http
             );
         if (match[2] === "log" && !body.title?.trim())
           throw Error("Titre requis");
+        if (match[2] === "revenue") {
+          body.type ||= "OTHER";
+          if (!BUSINESS_MODELS.includes(body.type))
+            throw Error("Source de revenu invalide");
+        }
         const fields = ["saas_id", ...spec.fields];
         const conflict =
           match[2] === "snapshot"
@@ -339,7 +368,9 @@ http
       );
       if (extname(target) === ".html") {
         let html = readFileSync(target, "utf8");
-        const p = list().find((p) => path === "/saas/" + p.slug);
+        const p = list().find(
+          (p) => path === "/exp/" + p.slug || path === "/saas/" + p.slug,
+        );
         if (p) {
           const base = process.env.PUBLIC_URL || `http://${req.headers.host}`;
           const title = escapeHtml(

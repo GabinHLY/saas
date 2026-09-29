@@ -15,6 +15,7 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
+COPY --from=build /app/shared ./shared
 # data/ contient la base SQLite et les images importées : à monter en volume.
 RUN mkdir -p data/uploads && chown -R node:node /app/data
 USER node

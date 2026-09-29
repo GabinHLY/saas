@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { demoProjects } from "./demo";
 import { LangContext, makeI18n, useI18n } from "./i18n";
+import { PRODUCT_TYPES, BUSINESS_MODELS } from "../shared/catalog.mjs";
 import "./style.css";
 const dd = (n) => String(n).padStart(2, "0");
 const shipped = (p) => !["PLANNED", "BUILDING"].includes(p.status);
@@ -248,8 +249,15 @@ export default function App() {
                             (d) => !projects.some((p) => p.day === d),
                           ) || 31,
                         status: "PLANNED",
-                        model: "SUBSCRIPTION",
-                        category: "PRODUCTIVITY",
+                        product_type:
+                          PRODUCT_TYPES.find(
+                            (x) => !projects.some((p) => p.product_type === x),
+                          ) || "OTHER",
+                        model:
+                          BUSINESS_MODELS.find(
+                            (x) => !projects.some((p) => p.model === x),
+                          ) || "OTHER",
+                        category: "",
                         hours: 0,
                         decision: "OBSERVE",
                       })
@@ -271,25 +279,21 @@ export default function App() {
                   items={[
                     [count + "/31", t.admin.shipped],
                     [money(total("revenue")), t.stats.revenue],
-                    [money(total("mrr")), t.stats.mrr],
-                    [money(total("costs")), t.admin.costs],
-                    [money(total("profit")), t.admin.profit, true],
+                    [money(total("costs")), t.stats.costs],
+                    [money(total("profit")), t.stats.profit, true],
                     [
                       money(
                         total("hours") ? total("profit") / total("hours") : 0,
                       ),
-                      t.admin.perHour,
+                      t.stats.perHour,
                     ],
+                    [money(total("mrr")), t.stats.mrr],
+                    [num(total("visitors")), t.stats.visitors],
+                    [num(total("users")), t.stats.users],
+                    [num(total("customers")), t.stats.customers],
+                    [dec(total("hours")), t.stats.buildTime],
                   ]}
                 />
-                <p className="admin-summary">
-                  {t.admin.summary(
-                    num(total("visitors")),
-                    num(total("users")),
-                    num(total("customers")),
-                    dec(total("hours")),
-                  )}
-                </p>
                 <Leaderboard
                   data={data}
                   metric={metric}
@@ -299,13 +303,13 @@ export default function App() {
                   onEdit={setEditing}
                   onEntry={setEntry}
                 />
-                <RevenueSplit data={data} />
+                <Insights data={data} />
               </>
             ) : (
               <Login session={session} onLogin={refresh} />
             )}
           </>
-        ) : path.startsWith("/saas/") ? (
+        ) : path.startsWith("/exp/") || path.startsWith("/saas/") ? (
           <Experiment
             slug={path.split("/").pop()}
             demo={demo}
@@ -328,6 +332,7 @@ export default function App() {
               setMetric={setMetric}
               link={link}
             />
+            <Insights data={data.filter(shipped)} />
           </>
         ) : path === "/journal" ? (
           <Journal data={data} demo={demo} link={link} />
@@ -342,7 +347,14 @@ export default function App() {
               </h1>
               <div className="hero-lede">
                 <p>{t.hero.lede}</p>
-                <p className="hero-motto">{t.hero.motto}</p>
+                <p className="hero-loop">
+                  {t.hero.loop.map((step, i) => (
+                    <React.Fragment key={step}>
+                      {i > 0 && <span aria-hidden="true"> → </span>}
+                      <span className={i === 2 ? "hl" : ""}>{step}</span>
+                    </React.Fragment>
+                  ))}
+                </p>
                 <a className="text-button" href="#registre">
                   {t.hero.openRegister} <ArrowRight size={16} />
                 </a>
@@ -369,7 +381,7 @@ export default function App() {
                   <span>{t.hero.workbench}</span>
                   {active ? (
                     link(
-                      "/saas/" + active.slug,
+                      "/exp/" + active.slug,
                       <>
                         {active.name} <ArrowUpRight size={16} />
                       </>,
@@ -388,14 +400,14 @@ export default function App() {
                 [num(total("users")), t.stats.users],
                 [num(total("customers")), t.stats.payingCustomers],
                 [money(total("revenue")), t.stats.totalRevenue, true],
-                [money(total("mrr")), t.stats.mrr],
+                [money(total("profit")), t.stats.profit],
               ]}
             />
             <Month
               data={data}
               day={day}
               onPick={(d, p) =>
-                p ? navigate("/saas/" + p.slug) : setToast(t.blankDay(d))
+                p ? navigate("/exp/" + p.slug) : setToast(t.blankDay(d))
               }
             />
             <section id="registre" className="register">
@@ -473,7 +485,7 @@ export default function App() {
                         <div className="fiche blank" key={d}>
                           <div className="fiche-head">
                             <span>
-                              {t.day} {dd(d)}
+                              {t.exp} {dd(d)}
                             </span>
                             <Stamp value="PLANNED" />
                           </div>
@@ -567,7 +579,7 @@ function DemoNotice() {
 }
 function Stats({ items }) {
   return (
-    <dl className="ledger">
+    <dl className={"ledger" + (items.length > 8 ? " ledger-grid" : "")}>
       {items.map(([v, label, mark]) => (
         <div key={label}>
           <dd>{mark ? <span className="hl">{v}</span> : v}</dd>
@@ -678,8 +690,19 @@ function Month({ data, day, onPick }) {
     </section>
   );
 }
+function Kind({ p }) {
+  const { t } = useI18n();
+  return (
+    <span className="kind">
+      <span className="type-tag">
+        {t.productType[p.product_type] || p.product_type}
+      </span>
+      <span className="model-name">{t.model[p.model] || p.model}</span>
+    </span>
+  );
+}
 function Fiche({ p, link }) {
-  const { t, money, num, category } = useI18n();
+  const { t, money, num } = useI18n();
   const h = Math.floor(p.hours),
     m = Math.round((p.hours % 1) * 60);
   return (
@@ -692,7 +715,7 @@ function Fiche({ p, link }) {
     >
       <div className="fiche-head">
         <span>
-          {t.day} {dd(p.day)}
+          {t.exp} {dd(p.day)}
         </span>
         <Stamp value={p.status} />
       </div>
@@ -700,7 +723,9 @@ function Fiche({ p, link }) {
         {p.logo && <img src={p.logo} alt="" />}
         <h3>{p.name}</h3>
       </div>
-      <p className="fiche-cat">{category(p.category)}</p>
+      <p className="fiche-cat">
+        <Kind p={p} />
+      </p>
       <p className="fiche-pitch">{p.pitch}</p>
       <ul className="leaders">
         <li>
@@ -719,7 +744,7 @@ function Fiche({ p, link }) {
         </li>
       </ul>
       {link(
-        "/saas/" + p.slug,
+        "/exp/" + p.slug,
         <>
           {t.fiche.readReport} <ArrowRight size={16} />
         </>,
@@ -728,6 +753,7 @@ function Fiche({ p, link }) {
     </article>
   );
 }
+const MONEY_COLUMNS = ["revenue", "mrr", "costs", "profit", "profitHour"];
 function Leaderboard({
   data,
   metric,
@@ -738,19 +764,76 @@ function Leaderboard({
   onEntry,
 }) {
   const { t, money, num, dec } = useI18n();
-  const [descending, setDescending] = useState(true);
-  const columns = [
-    ...(privateView ? ["day"] : []),
-    "revenue",
-    "mrr",
-    "users",
-    "customers",
-    ...(privateView
-      ? ["visitors", "conversion", "costs", "profit", "hours", "profitHour"]
-      : []),
-  ];
+  const [descending, setDescending] = useState(true),
+    [typeFilter, setTypeFilter] = useState("ALL"),
+    [modelFilter, setModelFilter] = useState("ALL");
+  const columns = privateView
+    ? [
+        "day",
+        "product_type",
+        "model",
+        "revenue",
+        "costs",
+        "profit",
+        "profitHour",
+        "mrr",
+        "users",
+        "customers",
+        "visitors",
+        "conversion",
+        "hours",
+      ]
+    : [
+        "product_type",
+        "model",
+        "users",
+        "revenue",
+        "profit",
+        "profitHour",
+        "hours",
+      ];
+  const text = (k) => k === "product_type" || k === "model";
+  const cell = (p, k) =>
+    k === "product_type"
+      ? t.productType[p[k]] || p[k]
+      : k === "model"
+        ? t.model[p[k]] || p[k]
+        : MONEY_COLUMNS.includes(k)
+          ? money(p[k])
+          : k === "conversion"
+            ? dec(p[k]) + " %"
+            : k === "hours"
+              ? dec(p[k]) + " h"
+              : num(p[k]);
+  const types = PRODUCT_TYPES.filter((x) =>
+      data.some((p) => p.product_type === x),
+    ),
+    models = BUSINESS_MODELS.filter((x) => data.some((p) => p.model === x));
+  const rows = data.filter(
+    (p) =>
+      (typeFilter === "ALL" || p.product_type === typeFilter) &&
+      (modelFilter === "ALL" || p.model === modelFilter),
+  );
+  const chips = (label, values, labels, value, set) =>
+    values.length > 1 && (
+      <div className="chips" role="group" aria-label={label}>
+        <span>{label}</span>
+        {["ALL", ...values].map((x) => (
+          <button
+            key={x}
+            className={value === x ? "active" : ""}
+            aria-pressed={value === x}
+            onClick={() => set(x)}
+          >
+            {x === "ALL" ? t.board.all : labels[x] || x}
+          </button>
+        ))}
+      </div>
+    );
   return (
     <section className="board">
+      {chips(t.board.type, types, t.productType, typeFilter, setTypeFilter)}
+      {chips(t.board.model, models, t.model, modelFilter, setModelFilter)}
       <div className="table-toolbar">
         <span>{privateView ? t.board.allColumns : t.board.publicColumns}</span>
         <label>
@@ -782,13 +865,18 @@ function Leaderboard({
                 </button>
               </th>
               {columns.map((k) => (
-                <th key={k} className={"num" + (metric === k ? " sorted" : "")}>
+                <th
+                  key={k}
+                  className={
+                    (text(k) ? "" : "num") + (metric === k ? " sorted" : "")
+                  }
+                >
                   <button
                     onClick={() => {
                       if (metric === k) setDescending(!descending);
                       else {
                         setMetric(k);
-                        setDescending(true);
+                        setDescending(!text(k));
                       }
                     }}
                   >
@@ -800,7 +888,7 @@ function Leaderboard({
             </tr>
           </thead>
           <tbody>
-            {[...data]
+            {[...rows]
               .sort(
                 (a, b) =>
                   (descending ? -1 : 1) *
@@ -815,10 +903,10 @@ function Leaderboard({
                   </td>
                   <td>
                     {link(
-                      "/saas/" + p.slug,
+                      "/exp/" + p.slug,
                       <>
                         <small>
-                          {t.day} {dd(p.day)}
+                          {t.exp} {dd(p.day)}
                         </small>
                         <strong>{p.name}</strong>
                       </>,
@@ -831,19 +919,13 @@ function Leaderboard({
                   {columns.map((k) => (
                     <td
                       key={k}
-                      className={"num" + (metric === k ? " sorted" : "")}
+                      className={
+                        (text(k) ? "text" : "num") +
+                        (metric === k ? " sorted" : "") +
+                        (k === "profit" && p.profit < 0 ? " negative" : "")
+                      }
                     >
-                      {[
-                        "revenue",
-                        "mrr",
-                        "costs",
-                        "profit",
-                        "profitHour",
-                      ].includes(k)
-                        ? money(p[k])
-                        : k === "conversion"
-                          ? dec(p[k]) + " %"
-                          : num(p[k])}
+                      {cell(p, k)}
                     </td>
                   ))}
                   {privateView && (
@@ -863,7 +945,7 @@ function Leaderboard({
               ))}
           </tbody>
         </table>
-        {!data.length && <div className="empty">{t.board.none}</div>}
+        {!rows.length && <div className="empty">{t.board.none}</div>}
       </div>
     </section>
   );
@@ -883,9 +965,9 @@ function Experiment({ slug, demo, data, link }) {
         v
           ? {
               ...v,
-              revenues: [
-                { amount: v.revenue, type: "ONE_TIME", date: v.launch },
-              ],
+              revenues: Object.entries(v.revenueSources || {}).map(
+                ([type, amount]) => ({ amount, type, date: v.launch }),
+              ),
               snapshots: [],
               logs: [
                 { date: v.launch + "T09:00", title: t.demo.logStart },
@@ -908,6 +990,9 @@ function Experiment({ slug, demo, data, link }) {
     );
   if (!p) return <div className="empty">{t.report.loading}</div>;
   const s = t.report.sections;
+  const sources = Object.entries(p.revenueSources || {}).sort(
+    (a, b) => b[1] - a[1],
+  );
   return (
     <>
       <div className="report-back">
@@ -938,8 +1023,8 @@ function Experiment({ slug, demo, data, link }) {
         </div>
       </section>
       <p className="report-meta">
-        <span>{category(p.category)}</span>
-        <span>{(t.model[p.model] || p.model)?.toLowerCase()}</span>
+        <Kind p={p} />
+        {p.category && <span>{category(p.category)}</span>}
         <span>{p.stack || t.report.stackTodo}</span>
         {p.url && (
           <a href={p.url} target="_blank" rel="noreferrer">
@@ -950,10 +1035,11 @@ function Experiment({ slug, demo, data, link }) {
       <Stats
         items={[
           [money(p.revenue), t.stats.revenue, true],
+          [money(p.costs), t.stats.costs],
+          [money(p.profit), t.stats.profit],
           [money(p.mrr), t.stats.mrr],
           [num(p.visitors), t.stats.visitors],
-          [num(p.users), t.stats.signups],
-          [num(p.active), t.stats.active],
+          [num(p.users), t.stats.users],
           [num(p.customers), t.stats.customers],
           [
             dec(p.visitors ? (100 * p.customers) / p.visitors : 0) + " %",
@@ -963,27 +1049,54 @@ function Experiment({ slug, demo, data, link }) {
       />
       <div className="report-grid">
         <div className="report-body">
-          {[
-            [s.hypothesis, p.hypothesis || t.report.hypothesisTodo],
-            [
-              s.build,
-              `${t.report.buildText(dec(p.hours))} ${p.description || ""}`,
-            ],
-            [
-              s.launch,
-              p.launch
+          <section className="report-section">
+            <h3>
+              <span>1.</span> {s.hypothesis}
+            </h3>
+            <p>{p.hypothesis || t.report.hypothesisTodo}</p>
+          </section>
+          <section className="report-section">
+            <h3>
+              <span>2.</span> {s.build}
+            </h3>
+            <p>
+              {t.report.buildText(dec(p.hours))}{" "}
+              {p.launch
                 ? t.report.publishedOn(longDate(p.launch))
-                : t.report.publishSoon,
-            ],
-            [s.result, p.result || t.report.resultTodo],
-          ].map(([title, text], i) => (
-            <section className="report-section" key={i}>
-              <h3>
-                <span>{i + 1}.</span> {title}
-              </h3>
-              <p>{text}</p>
-            </section>
-          ))}
+                : t.report.publishSoon}{" "}
+              {p.description}
+            </p>
+          </section>
+          <section className="report-section">
+            <h3>
+              <span>3.</span> {s.monetization}
+            </h3>
+            <p>{t.report.mainModel(t.model[p.model] || p.model)}</p>
+            {sources.length ? (
+              <ul className="leaders sources">
+                {sources.map(([type, v]) => (
+                  <li key={type}>
+                    <span>{t.model[type] || type}</span>
+                    <b>{money(v)}</b>
+                  </li>
+                ))}
+                {sources.length > 1 && (
+                  <li className="total">
+                    <span>{t.report.total}</span>
+                    <b>{money(p.revenue)}</b>
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="muted">{t.report.noRevenue}</p>
+            )}
+          </section>
+          <section className="report-section">
+            <h3>
+              <span>4.</span> {s.result}
+            </h3>
+            <p>{p.result || t.report.resultTodo}</p>
+          </section>
           <section className="report-section decision">
             <h3>
               <span>5.</span> {s.decision}
@@ -1056,23 +1169,7 @@ function Experiment({ slug, demo, data, link }) {
         ))}
       </div>
       <Chart project={p} metric={graph} period={period} />
-      <div className="breakdown">
-        <h3>{t.report.moneyFrom}</h3>
-        <ul className="leaders">
-          {Object.entries(
-            (p.revenues || []).reduce(
-              (a, r) => ({ ...a, [r.type]: (a[r.type] || 0) + r.amount }),
-              {},
-            ),
-          ).map(([type, v]) => (
-            <li key={type}>
-              <span>{t.model[type] || type}</span>
-              <b>{money(v)}</b>
-            </li>
-          ))}
-        </ul>
-        {!p.revenues?.length && <p className="muted">{t.report.noRevenue}</p>}
-      </div>
+      <div className="report-end" />
     </>
   );
 }
@@ -1183,13 +1280,13 @@ function Journal({ data, demo, link }) {
               </div>
               <div>
                 <p className="journal-meta">
-                  {t.day} {dd(l.project.day)} · {l.project.name}
+                  {t.exp} {dd(l.project.day)} · {l.project.name}
                 </p>
                 <h2>{l.title}</h2>
                 {l.description && <p>{l.description}</p>}
               </div>
               {link(
-                "/saas/" + l.project.slug,
+                "/exp/" + l.project.slug,
                 <ArrowUpRight size={22} aria-label={t.fiche.readReport} />,
                 "journal-go",
               )}
@@ -1403,15 +1500,23 @@ function ProjectForm({ project, onClose, onSaved }) {
             f.status,
             statuses.map((s) => [s, t.status[s]]),
           )}
-          {select("model", f.model, Object.entries(t.model))}
           {select(
-            "category",
-            f.category,
-            [...new Set([...Object.keys(t.category), form.category])]
-              .filter(Boolean)
-              .map((c) => [c, category(c)]),
+            "product_type",
+            f.productType,
+            PRODUCT_TYPES.map((x) => [x, t.productType[x]]),
+          )}
+          {select(
+            "model",
+            f.model,
+            BUSINESS_MODELS.map((x) => [x, t.model[x]]),
           )}
           {field("hours", f.hours, "number")}
+          {select("category", f.category, [
+            ["", "—"],
+            ...[...new Set([...Object.keys(t.category), form.category])]
+              .filter(Boolean)
+              .map((c) => [c, category(c)]),
+          ])}
           {field("url", f.url, "url")}
           {field("image", f.image, "url")}
           {field("logo", f.logo, "url")}
@@ -1559,7 +1664,10 @@ function EntryForm({ project, onClose, onSaved }) {
             </label>
             <label>
               {type === "revenue" ? f.type : f.category}
-              <select name={type === "revenue" ? "type" : "category"}>
+              <select
+                name={type === "revenue" ? "type" : "category"}
+                defaultValue={type === "revenue" ? project.model : undefined}
+              >
                 {Object.entries(type === "revenue" ? t.model : t.expense).map(
                   ([value, name]) => (
                     <option key={value} value={value}>
@@ -1621,42 +1729,176 @@ function EntryForm({ project, onClose, onSaved }) {
     </Modal>
   );
 }
-function RevenueSplit({ data }) {
-  const { t, money, dec } = useI18n();
-  const [rows, setRows] = useState([]);
-  useEffect(() => {
-    api("/admin/revenue-summary")
-      .then(setRows)
-      .catch(() => setRows([]));
-  }, [data]);
+function Bars({ title, rows }) {
+  const { money } = useI18n();
+  const max = Math.max(1, ...rows.map((r) => r[2]));
   return (
-    <>
-      <p className="admin-summary">
-        {t.admin.average(
-          money(
-            data.length
-              ? data.reduce((s, p) => s + p.revenue, 0) / data.length
-              : 0,
-          ),
-          dec(
-            data.length
-              ? data.reduce((s, p) => s + p.hours, 0) / data.length
-              : 0,
-          ),
-        )}
-      </p>
-      <div className="breakdown">
-        <h3>{t.admin.moneyFromAll}</h3>
+    <div className="bars">
+      <h3>{title}</h3>
+      <ol>
+        {rows.map(([key, label, value]) => (
+          <li key={key}>
+            <span className="bar-label">{label}</span>
+            <span className="bar-track" aria-hidden="true">
+              <i style={{ width: (100 * value) / max + "%" }} />
+            </span>
+            <b>{money(value)}</b>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+// Ce qui rapporte : revenus par modèle, par type, matrice type × modèle, records.
+function Insights({ data }) {
+  const { t, money, num } = useI18n();
+  const live = data.filter((p) => p.status !== "PLANNED");
+  const heading = (
+    <div className="section-heading">
+      <div>
+        <h2>{t.insights.title}</h2>
+        <p>{t.insights.sub}</p>
+      </div>
+    </div>
+  );
+  if (!live.length)
+    return (
+      <section className="insights">
+        {heading}
+        <p className="empty">{t.insights.empty}</p>
+      </section>
+    );
+  const byModel = {},
+    byType = {},
+    cells = {};
+  for (const p of live) {
+    const sources = p.revenueSources || {};
+    byModel[p.model] ??= 0;
+    for (const [m, amount] of Object.entries(sources))
+      byModel[m] = (byModel[m] || 0) + amount;
+    byType[p.product_type] = (byType[p.product_type] || 0) + (p.revenue || 0);
+    // Une case est « testée » par le modèle principal et par chaque source de revenus.
+    for (const m of new Set([p.model, ...Object.keys(sources)]))
+      (cells[p.product_type + "|" + m] ??= []).push({
+        day: p.day,
+        name: p.name,
+        earned: (sources[m] || 0) > 0,
+      });
+  }
+  const rank = (totals, labels) =>
+    Object.entries(totals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, value]) => [key, labels[key] || key, value]);
+  const modelRows = rank(byModel, t.model),
+    typeRows = rank(byType, t.productType);
+  const best = (key) => {
+    const p = [...live].sort((a, b) => (b[key] || 0) - (a[key] || 0))[0];
+    return p && p[key] > 0 ? p : null;
+  };
+  const records = [
+    [t.insights.topRevenue, best("revenue"), (p) => money(p.revenue)],
+    [t.insights.topProfit, best("profit"), (p) => money(p.profit)],
+    [t.insights.topUsers, best("users"), (p) => num(p.users)],
+    [t.insights.topHour, best("profitHour"), (p) => money(p.profitHour) + " / h"],
+  ];
+  const keep = live.filter((p) => p.decision === "CONTINUE");
+  const usedModels = new Set(Object.keys(cells).map((k) => k.split("|")[1]));
+  return (
+    <section className="insights">
+      {heading}
+      <div className="insights-grid">
+        <Bars title={t.insights.byModel} rows={modelRows} />
+        <Bars title={t.insights.byType} rows={typeRows} />
+      </div>
+      <div className="matrix-block">
+        <h3>{t.insights.matrix}</h3>
+        <p className="matrix-sub">
+          {t.insights.matrixSub}{" "}
+          {t.insights.tested(
+            Object.keys(cells).length,
+            PRODUCT_TYPES.length * BUSINESS_MODELS.length,
+          )}
+        </p>
+        <div className="table-scroll">
+          <table className="matrix">
+            <thead>
+              <tr>
+                <th className="corner">{t.insights.matrixCorner}</th>
+                {BUSINESS_MODELS.map((m) => (
+                  <th
+                    key={m}
+                    scope="col"
+                    className={usedModels.has(m) ? "on" : ""}
+                  >
+                    <span>{t.model[m]}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PRODUCT_TYPES.map((type) => (
+                <tr
+                  key={type}
+                  className={
+                    live.some((p) => p.product_type === type) ? "on" : ""
+                  }
+                >
+                  <th scope="row">{t.productType[type]}</th>
+                  {BUSINESS_MODELS.map((m) => (
+                    <td key={m}>
+                      {(cells[type + "|" + m] || []).map((c) => (
+                        <span
+                          key={c.day}
+                          title={c.name}
+                          className={"chip" + (c.earned ? " earned" : "")}
+                        >
+                          {dd(c.day)}
+                        </span>
+                      ))}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="matrix-legend">
+          <span className="chip earned">07</span> {t.insights.earned}
+          <span className="chip">07</span> {t.insights.zero}
+        </p>
+      </div>
+      <div className="records">
+        <h3>{t.insights.records}</h3>
         <ul className="leaders">
-          {rows.map((r) => (
-            <li key={r.type}>
-              <span>{t.model[r.type] || r.type}</span>
-              <b>{money(r.amount)}</b>
+          {records.map(([label, p, value]) => (
+            <li key={label}>
+              <span>{label}</span>
+              <b>{p ? `${p.name} · ${value(p)}` : t.insights.nobody}</b>
             </li>
           ))}
+          {[
+            [t.insights.bestModel, modelRows[0]],
+            [t.insights.bestType, typeRows[0]],
+          ].map(([label, row]) => (
+            <li key={label}>
+              <span>{label}</span>
+              <b>
+                {row?.[2] > 0
+                  ? `${row[1]} · ${money(row[2])}`
+                  : t.insights.nobody}
+              </b>
+            </li>
+          ))}
+          <li>
+            <span>{t.insights.keep}</span>
+            <b>
+              {keep.length
+                ? keep.map((p) => p.name).join(", ")
+                : t.insights.nobody}
+            </b>
+          </li>
         </ul>
-        {!rows.length && <p className="muted">{t.admin.noTransactions}</p>}
       </div>
-    </>
+    </section>
   );
 }
