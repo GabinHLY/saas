@@ -26,7 +26,9 @@ const hash = (p) => {
 };
 if (process.env.ADMIN_PASSWORD) {
   if (process.env.ADMIN_PASSWORD.length < 12)
-    throw Error("ADMIN_PASSWORD: minimum 12 caractères");
+    throw Error(
+      `ADMIN_PASSWORD: minimum 12 caractères (reçu : ${process.env.ADMIN_PASSWORD.length})`,
+    );
   db.prepare(
     "INSERT INTO users(email,password) VALUES (?,?) ON CONFLICT(email) DO UPDATE SET password=excluded.password",
   ).run("admin", hash(process.env.ADMIN_PASSWORD));
@@ -360,6 +362,6 @@ http
       });
     }
   })
-  .listen(Number(process.env.PORT) || 3001, "0.0.0.0", () =>
-    console.log("API prête sur http://localhost:3001"),
-  );
+  .listen(Number(process.env.PORT) || 3001, "0.0.0.0", function () {
+    console.log(`API prête sur le port ${this.address().port}`);
+  });

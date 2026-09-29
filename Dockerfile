@@ -19,6 +19,7 @@ COPY --from=build /app/server ./server
 RUN mkdir -p data/uploads && chown -R node:node /app/data
 USER node
 EXPOSE 3001
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3001/api/session').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+COPY --chown=node:node healthcheck.mjs ./
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["node", "healthcheck.mjs"]
 CMD ["node", "server/index.mjs"]
